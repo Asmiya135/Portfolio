@@ -1,2 +1,2 @@
-# ASMIYA #01: comic-book portfolio
+# ASMIYA: comic-book portfolio
 WHY DO YOU NEED A README FOR THIS, JUST SEE MY PORTFOLIO....

@@ -1,9 +1,9 @@
 import random, re, html, pathlib
 SRC = pathlib.Path(__file__).parent
 OUT = SRC.parent / "index.html"
-css = (SRC / "style.css").read_text()
-body = (SRC / "body.html").read_text()
-js = (SRC / "app.js").read_text()
+css = (SRC / "style.css").read_text(encoding="utf-8")
+body = (SRC / "body.html").read_text(encoding="utf-8")
+js = (SRC / "app.js").read_text(encoding="utf-8")
 R = random.Random(135)
 
 def rep(a, b):
@@ -97,9 +97,9 @@ for ci, cx in enumerate(cats):
         lx = cx - (n - 1) * 8 + j * 16
         ly = 200 + (j % 2) * 26
         t.append(f'<path pathLength="1" d="M{cx} 126L{lx} {ly}" style="stroke-width:1.5"/>')
-        t.append(f'<circle cx="{lx}" cy="{ly}" r="6" fill="{"#8C96F0" if lid%3 else "#EC3B3B"}" stroke="#17142F" stroke-width="2" style="transition-delay:{0.9+lid*0.03:.2f}s"/>')
+        t.append(f'<circle cx="{lx}" cy="{ly}" r="6" fill="{"#8C96F0" if lid%3 else "#EC3B3B"}" stroke="#17142F" stroke-width="2" style="--o:{0.55+lid*0.015:.3f}"/>')
         lid += 1
-    t.append(f'<circle cx="{cx}" cy="126" r="15" fill="#FFFCF4" stroke="#17142F" stroke-width="3" style="transition-delay:{0.5+ci*0.08:.2f}s"/><text x="{cx}" y="131" text-anchor="middle">{ci+1}</text>')
+    t.append(f'<circle cx="{cx}" cy="126" r="15" fill="#FFFCF4" stroke="#17142F" stroke-width="3" style="--o:{0.35+ci*0.05:.2f}"/><text x="{cx}" y="131" text-anchor="middle">{ci+1}</text>')
 t.append(f'<text x="260" y="270" text-anchor="middle">6 CATEGORIES · {lid} KPIS · 4 TEAMS, ONE SET OF DEFINITIONS</text>')
 rep('<svg class="tree" id="tree" viewBox="0 0 520 280" role="img" aria-label="KPI tree: ROI and engagement split into six categories and 25 or more KPIs, with four teams\' definitions merged into one"></svg>',
     '<svg class="tree" id="tree" viewBox="0 0 520 280" role="img" aria-label="KPI tree: ROI and engagement split into six categories and 26 KPIs, with four teams aligned on one set of definitions">' + "".join(t) + '</svg>')
@@ -203,5 +203,5 @@ head = '''<!DOCTYPE html>
 <style>
 '''
 doc = head + css + "\n</style>\n</head>\n<body>\n" + body + "\n<script>\n" + js + "\n</script>\n</body>\n</html>\n"
-OUT.write_text(doc)
+OUT.write_text(doc, encoding="utf-8")
 print("wrote", OUT, len(doc) // 1024, "KB")

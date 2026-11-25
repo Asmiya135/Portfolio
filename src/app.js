@@ -60,30 +60,34 @@ addEventListener('pointerdown',e=>{if(e.target.closest('input,.msgs,.poke'))retu
 let sd=135;const rnd=()=>(sd=sd*16807%2147483647)/2147483647;
 $$('#stars i').forEach(el=>{const a=[];for(let i=0;i<70;i++)a.push(`${Math.round(rnd()*2200)}px ${Math.round(rnd()*1100)}px 0 ${['#FFFCF4','#F8DE3F','#BCC1F8'][Math.floor(rnd()*3)]}`);el.style.boxShadow=a.join(',')});
 
-/* ---------------- reveal on scroll ---------------- */
-const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.15,rootMargin:'0px 0px -5% 0px'});
-$$('[data-r]:not(.panel),.label,.tree,.teamup,.tc,.frames').forEach(el=>io.observe(el));
-const pio=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){$$(':scope > .panel',e.target).forEach(p=>p.classList.add('in'));pio.unobserve(e.target)}}),{threshold:0,rootMargin:'0px 0px -12% 0px'});
-$$('.comic,.spread').forEach(el=>pio.observe(el));
-
-/* counters */
-const cio=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;cio.unobserve(e.target);const el=e.target,to=+el.dataset.count,dec=+(el.dataset.dec||0),suf=el.dataset.suf||'';
-  const fmt=v=>(dec?v.toFixed(dec):Math.round(v).toLocaleString('en-IN'))+suf;if(RM){el.textContent=fmt(to);return}
-  const t0=performance.now();const st=now=>{const k=clamp((now-t0)/1400);const ez=1-(1-k)**3;el.textContent=fmt(to*ez);if(k<1)requestAnimationFrame(st)};requestAnimationFrame(st)}),{threshold:.6});
-$$('[data-count]').forEach(el=>cio.observe(el));
+let vh=innerHeight,cur=-1,dirty=true,jumping=false,zoneB=-1,sheetOn=false;
+/* ---------------- scroll-driven reveals: no timers, everything follows the scroll position ---------------- */
+const RV=[...new Set($$('main [data-r],main .label,main .tree,main .teamup,main .tc'))].filter(el=>!el.closest('#cover,.rack-stage')).map(el=>{
+  const tc=el.classList.contains('tc');const d=parseFloat(el.style.getPropertyValue('--d'))||0;
+  return{el,y:0,rv:-1,q:-1,off:d*.35+(tc?[...el.parentNode.children].indexOf(el)*.07:0),w:tc?.5:.35,qw:.7}});
+const CNT=$$('[data-count]').map(el=>({el,y:0,to:+el.dataset.count,dec:+(el.dataset.dec||0),suf:el.dataset.suf||'',last:''}));
+$$('.pile i').forEach(i=>i.style.setProperty('--o',(.25+(parseFloat(i.style.getPropertyValue('--dl'))||0)*.5).toFixed(3)));
+const backOut=x=>{const c1=1.70158,c3=c1+1;return 1+c3*(x-1)**3+c1*(x-1)**2};
+function docTop(el){if(!('offsetTop' in el))return el.getBoundingClientRect().top+scrollY;let y=0;while(el){y+=el.offsetTop;el=el.offsetParent}return y}
+function remeasure(){RV.forEach(o=>{o.y=docTop(o.el)});CNT.forEach(o=>{o.y=docTop(o.el)});dirty=true}
+function reveals(){const sy=scrollY;
+  RV.forEach(o=>{const base=vh*.95-o.off*vh-(o.y-sy);const rv=RM?1:clamp(base/(vh*o.w)),q=RM?1:clamp(base/(vh*o.qw));const st=o.el.style;
+    if(rv!==o.rv){o.rv=rv;st.setProperty('--rv',rv.toFixed(3));st.setProperty('--re',backOut(rv).toFixed(3))}
+    if(q!==o.q){o.q=q;st.setProperty('--q',q.toFixed(3));st.setProperty('--qe',(1-(1-q)**3).toFixed(3))}});
+  CNT.forEach(o=>{const k=RM?1:clamp((vh*.95-(o.y-sy))/(vh*.5));const v=o.to*(1-(1-k)**3);const t=(o.dec?v.toFixed(o.dec):Math.round(v).toLocaleString('en-IN'))+o.suf;if(t!==o.last){o.last=t;o.el.textContent=t}});
+}
 
 /* ---------------- pages, scrub loop, page flip ---------------- */
 const pages=$$('main > section.page');const N=pages.length;
 const pgc=$('#pgc'),inkbar=$('#inkbar');
 const scrubs=$$('[data-scrub]');
 const hooks={};
-let vh=innerHeight,cur=-1,dirty=true,jumping=false;
 const flipEl=$('#flip'),sheet=$('#sheet'),shade=$('#shade'),fnum=$('#fnum'),ftitle=$('#ftitle'),fsfx=$('#fsfx');
 let flipsOn=store.get('flip')!=='0',flipping=false;
 const flipBtn=$('#flipBtn');
 const syncFlip=()=>flipBtn.setAttribute('aria-pressed',String(flipsOn));
 syncFlip();
-flipBtn.addEventListener('click',()=>{flipsOn=!flipsOn;store.set('flip',flipsOn?'1':'0');syncFlip();toast(flipsOn?'Page flips on. Cross a section to see one.':'Page flips off. Smooth reading mode.')});
+flipBtn.addEventListener('click',()=>{flipsOn=!flipsOn;dirty=true;store.set('flip',flipsOn?'1':'0');syncFlip();toast(flipsOn?'Page flips on. Cross a section to see one.':'Page flips off. Smooth reading mode.')});
 const FSFX=['FLIP!','SHFF!','FWIP!','SWOOSH!','KA-FLIP!','FLAP!'];
 const PEEK=['neutral','think','smug','excited','wink','smug','excited','think','angry','pout','smug','excited','wink','think','excited'];const peek=$('#peek');
 function setSheet(i){const s=pages[i];const pf=PEEK[i%PEEK.length];peek.src=pf==='neutral'?'assets/cutout.webp':'assets/cut-'+pf+'.webp';fnum.textContent='PAGE '+String(i+1).padStart(2,'0')+' / '+N;ftitle.textContent=s.dataset.page;fsfx.textContent=FSFX[(i*5)%FSFX.length];sheet.style.setProperty('--acc',s.dataset.acc||'#EC3B3B')}
@@ -110,7 +114,7 @@ function jumpTo(id){
   const go=()=>{window.scrollTo({top:t.getBoundingClientRect().top+scrollY,behavior:'instant'});dirty=true};
   if(!flipsOn||RM||i<0){t.scrollIntoView({behavior:RM?'auto':'smooth'});return}
   jumping=true;const dir=i>=cur?1:-1;cur=i;updCounter();
-  flip(i,dir,go).then(()=>{jumping=false;dirty=true});
+  flip(i,dir,go).then(()=>{jumping=false;sheetOn=false;zoneB=-1;dirty=true});
 }
 function updCounter(){pgc.textContent=`PAGE ${String(cur+1).padStart(2,'0')} / ${N}`}
 function prog(el,r){const t=el.dataset.scrub;if(t==='pin'){const span=r.height-vh;return span>0?clamp(-r.top/span):0}
@@ -122,11 +126,29 @@ function update(){
   inkbar.style.setProperty('--sp',H>0?clamp(scrollY/H).toFixed(4):0);
   scrubs.forEach((el,k)=>{const p=RM?1:prog(el,rects[k]);if(el._p!==p){el._p=p;el.style.setProperty('--p',p.toFixed(4));const h=hooks[el.id];if(h)h(p,el)}});
   let idx=0;for(let i=0;i<N;i++)if(tops[i]<=vh*.5)idx=i;
-  if(idx!==cur&&!jumping){const prev=cur;cur=idx;updCounter();if(prev>=0&&booted)flip(idx,idx>prev?1:-1)}
+  if(idx!==cur&&!jumping){cur=idx;updCounter()}
+  reveals();
+  /* scroll-driven page flip: the sheet's angle follows the next section's top edge as it crosses the screen */
+  if(!flipping&&!jumping){
+    let bi=-1,t=0;
+    if(flipsOn&&!RM&&booted)for(let i=1;i<N;i++){const b=tops[i];if(b<vh*.8&&b>vh*.2){bi=i;t=(vh*.8-b)/(vh*.6);break}}
+    if(bi<0){if(sheetOn){flipEl.classList.remove('on');sheetOn=false}zoneB=-1}
+    else{
+      if(bi!==zoneB){zoneB=bi;setSheet(bi);Snd.whoosh()}
+      const sm=x=>x*x*(3-2*x);let ang=0,org='0% 50%',sh=0;
+      if(t<.42){const k=sm(t/.42);ang=92*(1-k);org='100% 50%';sh=.75*(1-k)}
+      else if(t>.58){const k=sm((t-.58)/.42);ang=-92*k;sh=.75*k}
+      sheet.style.transformOrigin=org;sheet.style.transform=`rotateY(${ang.toFixed(2)}deg)`;shade.style.opacity=sh.toFixed(3);
+      if(!sheetOn){flipEl.classList.add('on');sheetOn=true}
+    }
+  }
 }
 addEventListener('scroll',()=>{dirty=true},{passive:true});
-function measure(){vh=innerHeight;flipEl.style.perspective=Math.max(1800,innerWidth*2.3)+'px';const f=$('#foot'),sp=$('#spacer');if(f&&sp)sp.style.height=f.offsetHeight+'px';dirty=true}
+function measure(){vh=innerHeight;remeasure();flipEl.style.perspective=Math.max(1800,innerWidth*2.3)+'px';const f=$('#foot'),sp=$('#spacer');if(f&&sp)sp.style.height=f.offsetHeight+'px';dirty=true}
 addEventListener('resize',measure);
+const mainRO=new ResizeObserver(()=>remeasure());mainRO.observe($('#main'));
+addEventListener('load',remeasure);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(remeasure);
 (function loop(){if(dirty){dirty=false;update()}requestAnimationFrame(loop)})();
 
 document.addEventListener('click',e=>{const a=e.target.closest('a[href^="#"],[data-jump]');if(!a)return;const id=a.dataset.jump||a.getAttribute('href').slice(1);if(!id||!document.getElementById(id))return;e.preventDefault();closeToc();jumpTo(id)});
